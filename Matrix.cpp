@@ -1,211 +1,363 @@
-#include "Matrix.h"
-//using namespace std;
-
-void Matrix::Get_mem(int _i, int _j)
+#include "matrix.h"
+matrix::matrix()
 {
-	m = new double* [_i];
-	for (int k = 0; k < _i; k++)
-		m[k] = new double[_j];
+	isNum = false;
 }
-
-Matrix::Matrix(int _i, int _j)
+matrix::~matrix() {}
+matrix::matrix(const std::string& str)
 {
-	if (_i == 0 && _j == 0)
+	if (IsNumber(str))
 	{
-		cout << "vvedite razmer matritsy: ";
-		cin >> i >> j;
+		isNum = true;
+		value = std::stod(str);
+		SizeRov = 0;
+		SizeCol = 0;
+		return;
 	}
-	else
+	isNum = false;
+	value = 0;
+	SizeRov = std::count(str.begin(), str.end(), '|');
+	SizeCol = std::count(str.begin(), str.end(), ',') / SizeRov + 1;;
+	array.resize(SizeRov);
+	int numRov = 0;
+	for (auto& string : StringSplit(str.substr(0, str.size() - 1), "|")) {
+		if (SizeCol != std::count(string.begin(), string.end(), ',') + 1)
+			throw std::exception("Row sizes do not match");
+		for (auto& number : StringSplit(string, ",")) {
+			if (!IsFloat(number))
+				throw std::exception("One or more elements of the matrix is not a number!");
+			array[numRov].push_back(std::stod(number));
+		}
+		numRov++;
+	}
+}
+
+matrix::matrix(const Operations* calc)
+{
+	SizeRov = ((matrix*)calc)->SizeRov;
+	SizeCol = ((matrix*)calc)->SizeCol;
+	value = ((matrix*)calc)->value;
+	isNum = ((matrix*)calc)->isNum;
+	array = ((matrix*)calc)->array;
+}
+//+
+Operations* matrix::add(const Operations* arr)
+{
+	try
 	{
-		i = _i;
-		j = _j;
+		if (isNum && ((matrix*)arr)->isNum)
+		{
+			value += ((matrix*)arr)->value;
+			return this;
+		}
+		if (isNum && !((matrix*)arr)->isNum)
+		{
+			SizeRov = ((matrix*)arr)->SizeRov;
+			SizeCol = ((matrix*)arr)->SizeCol;
+			array = ((matrix*)arr)->array;
+			isNum = false;
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] = ((matrix*)arr)->array[i][j] + value;
+			return this;
+		}
+		if (!isNum && ((matrix*)arr)->isNum)
+		{
+			value = ((matrix*)arr)->value;
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] += value;
+			return this;
+		}
+		if (SizeCol == ((matrix*)arr)->SizeCol and SizeRov == ((matrix*)arr)->SizeRov)
+		{
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] += ((matrix*)arr)->array[i][j];
+			return this;
+		}
+		throw std::exception("Matrix sizes do not match\n");
+
 	}
-	if (i <= 0 || j <= 0)
+	catch (const std::exception& e)
 	{
-		printf("bad size");
-		system("pause");
-		exit(1);
+		std::cerr << e.what();
 	}
-	Get_mem(i, j);
-}
 
-Matrix::Matrix(const Matrix& m1)
-{
-	i = m1.i;
-	j = m1.j;
-	Get_mem(i, j);
-	for (int k = 0; k < i; k++)
-		for (int l = 0; l < j; l++)
-			m[k][l] = m1.m[k][l];
 }
-
-Matrix::~Matrix()
+//*
+Operations* matrix::increase(const Operations* arr)
 {
-	for (int k = 0; k < i; k++)
+	try
 	{
-		delete[] m[k];
+		if (isNum && ((matrix*)arr)->isNum)
+		{
+			value *= ((matrix*)arr)->value;
+			return this;
+		}
+		if (isNum && !((matrix*)arr)->isNum)
+		{
+			SizeRov = ((matrix*)arr)->SizeRov;
+			SizeCol = ((matrix*)arr)->SizeCol;
+			array = ((matrix*)arr)->array;
+			isNum = false;
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] = ((matrix*)arr)->array[i][j] * value;
+			return this;
+		}
+		if (!isNum && ((matrix*)arr)->isNum)
+		{
+			value = ((matrix*)arr)->value;
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] *= value;
+			return this;
+		}
+		if (SizeCol == ((matrix*)arr)->SizeRov)
+		{
+			matrix m1;
+			m1.SizeRov = SizeRov;
+			m1.SizeCol = ((matrix*)arr)->SizeCol;
+			m1.array = array;
+			for (int i = 0; i < SizeRov; i++)
+				m1.array[i].resize(SizeRov);
+			for (int i = 0; i < m1.SizeRov; i++)
+				for (int j = 0; j < m1.SizeCol; j++)
+					m1.array[i][j] = 0;
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < m1.SizeCol; j++)
+					for (int k = 0; k < SizeCol; k++)
+						m1.array[i][j] += array[i][k] * ((matrix*)arr)->array[k][j];
+			SizeCol = ((matrix*)arr)->SizeCol;
+			array = std::move(m1.array);
+			return this;
+		}
+		throw std::exception("Matrix sizes do not match\n");
 	}
-	delete[] m;
-}
-
-inline void Error(const char* str)
-{
-	cout << endl << str << endl;
-	system("pause");
-	exit(1);
-}
-
-//-------------------------------------------------------------------------------------------------------------------------
-
-Matrix operator+(Matrix m1, Matrix m2)
-{
-	Matrix m3(m1.i, m1.j);
-	if (m1.i == m2.i && m1.j == m2.j)
+	catch (const std::exception& e)
 	{
-		for (int i = 0; i < m1.i; i++)
-			for (int j = 0; j < m1.j; j++)
-				m3[i][j] = m1[i][j] + m2[i][j];
+		std::cerr << e.what();
 	}
-	else cout << "неверный размер матриц, попробуйте ввести снова" << endl;
-	return m3;
-}
 
-Matrix operator-(Matrix m1, Matrix m2)
+}
+//-
+Operations* matrix::subtraction(const Operations* arr)
 {
-	Matrix m3(m1.i, m1.j);
-	if (m1.i == m2.i && m1.j == m2.j)
+	try
 	{
-		for (int i = 0; i < m1.i; i++)
-			for (int j = 0; j < m1.j; j++)
-				m3[i][j] = m1[i][j] - m2[i][j];
+		if (isNum && ((matrix*)arr)->isNum)
+		{
+			value -= ((matrix*)arr)->value;
+			return this;
+		}
+		if (isNum && !((matrix*)arr)->isNum)
+		{
+			throw std::exception("It is impossible to subtract a matrix from a number!\n");
+			SizeRov = 0;
+			value = 0;
+			return this;
+		}
+		if (!isNum && ((matrix*)arr)->isNum)
+		{
+			value = ((matrix*)arr)->value;
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] -= value;
+			return this;
+		}
+		if (SizeCol == ((matrix*)arr)->SizeCol and SizeRov == ((matrix*)arr)->SizeRov)
+		{
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] -= ((matrix*)arr)->array[i][j];
+			return this;
+		}
+		throw std::exception("Matrix sizes do not match\n");
 	}
-	else cout << "неверный размер матриц, попробуйте ввести снова" << endl;
-	return m3;
-}
-
-Matrix operator*(Matrix m1, Matrix m2)
-{
-	Matrix m3(m1.i, m1.i);
-	for (int i = 0; i < m1.i; i++)
-		for (int j = 0; j < m1.i; j++)
-			m3[i][j] = 0;
-	if (m1.i == m2.j && m1.j == m2.i)
+	catch (const std::exception& e)
 	{
-		for (int i = 0; i < m1.i; i++)
-			for (int j = 0; j < m1.i; j++)
-				for (int k = 0; k < m1.j; k++)
-				m3[i][j] += m1[i][k] * m2[k][j];
+		std::cerr << e.what();
 	}
-	else Error("nevern razmer matrits");
-	return m3;
-}
 
-Matrix operator/(Matrix m1, Matrix m2)
+}
+//%
+Operations* matrix::div(const Operations* arr)
 {
-	Matrix m3(m1.i, m1.j);
-	if (m1.i == m2.i && m1.j == m2.j)
+	try
 	{
-		for (int i = 0; i < m1.i; i++)
-			for (int j = 0; j < m1.j; j++)
-				m3[i][j] = m1[i][j] / m2[i][j];
+		if (isNum && ((matrix*)arr)->isNum)
+		{
+			if (((matrix*)arr)->value == 0)
+			{
+				throw std::exception("Couldn't div by 0!\n");
+				SizeRov = 0;
+				return this;
+			}
+			value /= ((matrix*)arr)->value;
+			return this;
+		}
+		if (isNum && !((matrix*)arr)->isNum)
+		{
+			throw std::exception("Error! Couldn't div num on matrix!\n");
+			SizeRov = 0;
+			return this;
+		}
+		if (!isNum && ((matrix*)arr)->isNum)
+		{
+			if (((matrix*)arr)->value == 0)
+			{
+				throw std::exception("Error! Couldn't div by 0!\n");
+				SizeRov = 0;
+				return this;
+			}
+			value = ((matrix*)arr)->value;
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] /= value;
+			return this;
+		}
+		if (SizeCol == ((matrix*)arr)->SizeCol and SizeRov == ((matrix*)arr)->SizeRov)
+		{
+			for (int i = 0; i < ((matrix*)arr)->SizeCol; i++)
+				for (int j = 0; j < ((matrix*)arr)->SizeRov; j++)
+					if (((matrix*)arr)->array[i][j] == 0)
+					{
+						throw std::exception("Error! Couldn't div by 0!\n");
+						SizeRov = 0;
+						return this;
+					}
+			for (int i = 0; i < SizeRov; i++)
+				for (int j = 0; j < SizeCol; j++)
+					array[i][j] /= ((matrix*)arr)->array[i][j];
+			return this;
+		}
+		throw std::exception("Matrix sizes do not match\n");
 	}
-	else Error("неверный размер матриц");
-	return m3;
-}
-
-//-------------------------------------------------------------------------------------------------------------------------
-
-Matrix operator+(Matrix& m1, double a)
-{
-	Matrix m3(m1.i, m1.j);
-	for (int i = 0; i < m1.i; i++)	
-		for (int j = 0; j < m1.j; j++)
-			m3.m[i][j] = m1.m[i][j] + a;
-	return m3;
-}
-
-Matrix operator-(Matrix m1, double a)
-{
-	Matrix m3(m1.i, m1.j);
-	for (int i = 0; i < m1.i; i++)
-		for (int j = 0; j < m1.j; j++)
-			m3.m[i][j] = m1.m[i][j] - a;
-	return m3;
-}
-
-Matrix operator*(Matrix m1, double a)
-{
-	Matrix m3(m1.i, m1.j);
-	for (int i = 0; i < m1.i; i++)
-		for (int j = 0; j < m1.j; j++)
-			m3.m[i][j] = m1.m[i][j] * a;
-	return m3;
-}
-
-Matrix operator/(Matrix m1, double a)
-{
-	Matrix m3(m1.i, m1.j);
-	for (int i = 0; i < m1.i; i++)
-		for (int j = 0; j < m1.j; j++)
-			m3.m[i][j] = m1.m[i][j] / a;
-	return m3;
-}
-
-//-------------------------------------------------------------------------------------------------------------------------
-
-Matrix operator+(double a, Matrix m1)
-{
-	return m1+a;
-}
-
-Matrix operator-(double a, Matrix m1)
-{
-	Error("nelzya vychitat` matritsu iz chicla");
-	return m1;
-}
-
-Matrix operator*(double a, Matrix m1)
-{
-	return m1*a;
-}
-Matrix operator/(double a, Matrix m1)
-{
-	Error("nelzya delit` chiclo na matritsy");
-	return m1;
-}
-
-double* Matrix::operator[](const int k)
-{
-	return  m[k];
-}
-
-Matrix const& Matrix::operator=(Matrix const& m1)
-{
-	if (m) delete m;
-	i = m1.i;
-	j = m1.j;
-	Get_mem(i,j);
-	for (int k = 0; k < i; k++)
-		for (int l = 0; l < j; l++)
-			m[k][l] = m1.m[k][l];
-	return *this;
-}
-
-void Matrix::Print() const
-{
-	for (int k = 0; k < i; k++)
+	catch (const std::exception& e)
 	{
-		for (int l = 0; l < j; l++)
-			cout << m[k][l] << " ";
-		cout << endl;
+		std::cerr << e.what();
 	}
-	cout << endl;
+
+
+}
+//**
+Operations* matrix::exp(const Operations* arr)
+{
+	if (isNum && ((matrix*)arr)->isNum)
+	{
+		if (((matrix*)arr)->value < 0)
+		{
+			auto tmp = value;
+			for (int i = 1; i <= -((matrix*)arr)->value - 1; i++)
+				value *= tmp;
+			value = 1 / value;
+			return this;
+		}
+		if (((matrix*)arr)->value == 0)
+		{
+			value = 1;
+			return this;
+		}
+		auto tmp = value;
+		for (int i = 1; i <= ((matrix*)arr)->value - 1; i++)
+			value *= tmp;
+		return this;
+	}
+	
+	if (isNum && !((matrix*)arr)->isNum)
+	{
+		throw std::exception("Error! Wrong operation! It is impossible to raise the number to this power!");
+		SizeRov = 0;
+		value = 0;
+		return this;
+	}
+	if (!isNum && ((matrix*)arr)->isNum)
+	{
+		if (SizeCol != SizeRov)
+		{
+			throw std::exception("Error! Wrong operation! It is impossible not to raise a square matrix to a power!");
+			SizeRov = 0;
+			value = 0;
+			return this;
+		}
+		if (((matrix*)arr)->value <= -1)
+		{
+			throw std::exception("Error! Wrong operation! It is impossible to raise the matrix to this power!");
+			SizeRov = 0;
+			value = 0;
+			return this;
+		}
+		if (((matrix*)arr)->value == 0)
+		{
+			for (int i = 0; i < SizeCol; i++) {
+				for (int j = 0; j < SizeCol; j++) {
+					if (i == j) {
+						array[i][j] = 1;
+					}
+					else {
+						array[i][j] = 0;
+					}
+				}
+			}
+			return this;
+		}
+		if (((matrix*)arr)->value == 1)
+			return this;
+		matrix m1;
+		m1.SizeRov = SizeRov;
+		m1.SizeCol = SizeCol;
+		m1.array = array;
+		for (int i = 0; i < m1.SizeRov; i++)
+			for (int j = 0; j < m1.SizeCol; j++)
+				m1.array[i][j] = 0;
+		for (int i = 0; i < SizeRov; i++)
+			for (int j = 0; j < SizeCol; j++)
+				for (int k = 0; k < SizeCol; k++)
+					m1.array[i][j] += array[i][k] * array[k][j];
+
+		if (((matrix*)arr)->value > 2)
+		{
+			matrix m2;
+			m2.SizeRov = SizeRov;
+			m2.SizeCol = SizeCol;
+			m2.array = array;
+			for (int i = 0; i < m1.SizeRov; i++)
+				for (int j = 0; j < m1.SizeCol; j++)
+					m2.array[i][j] = m1.array[i][j];
+			for (int i = 3; i <= ((matrix*)arr)->value; i++)
+			{
+				for (int i = 0; i < SizeRov; i++)
+					for (int j = 0; j < m1.SizeCol; j++)
+						for (int k = 0; k < SizeCol; k++)
+							m2.array[i][j] += m1.array[i][k] * array[k][j];
+			}
+			array = std::move(m2.array);
+
+		}
+		else
+			array = std::move(m1.array);
+		return this;
+	}
+	if (!isNum && !((matrix*)arr)->isNum)
+	{
+		throw std::exception("Error! Wrong operation! It is impossible to raise the matrix to this power!");
+		SizeRov = 0;
+		value = 0;
+		return this;
+	}
+	throw std::exception("Matrix sizes do not match");
 }
 
-void Matrix::Add()
-{
-	cout << "vvedite znacheniya: " << endl;
-	for (int k = 0; k < i; k++)
-		for (int l = 0; l < j; l++)
-			cin >> m[k][l];
+std::ostream& operator<<(std::ostream& out, const matrix& matrix) {
+	if (matrix.value && matrix.SizeRov == 0)
+		out << matrix.value;
+	for (int i = 0; i < matrix.SizeRov; i++) {
+		out << "[ ";
+		for (int j = 0; j < matrix.SizeCol; j++)
+			out << matrix.array[i][j] << ' ';
+		out << "]\n";
+	}
+	return out;
 }
+
